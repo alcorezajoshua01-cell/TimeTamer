@@ -1,0 +1,503 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TimeTamer</title>
+
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f5f7fb;color:#172033}
+header{background:#4f46e5;color:white;padding:22px 16px;text-align:center}
+header h1{margin:0 0 6px;font-size:28px}
+header p{margin:0}
+main{max-width:850px;margin:auto;padding:16px}
+.card{background:white;border-radius:16px;padding:18px;margin:14px 0;box-shadow:0 3px 12px #0001}
+h2{margin-top:0;font-size:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+input,select{width:100%;padding:12px;border:1px solid #d5d9e2;border-radius:10px;font-size:15px}
+button{border:0;border-radius:10px;padding:11px 15px;font-weight:bold;font-size:14px;cursor:pointer}
+.primary{background:#4f46e5;color:white}
+.secondary{background:#e8eafc;color:#3730a3}
+.delete{background:#dc2626;color:white}
+.full{width:100%}
+.task{border:1px solid #ddd;border-radius:12px;padding:12px;margin:9px 0}
+.task.done{opacity:.55}
+.task-row{display:flex;align-items:center;gap:10px}
+.task-check{width:auto!important}
+.task-info{flex:1;min-width:0}
+.task-name{font-weight:bold}
+.meta{font-size:13px;color:#667085;margin-top:4px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:#f1f3ff;border-radius:12px;padding:12px;text-align:center}
+.stat b{display:block;font-size:24px;color:#4f46e5}
+.empty{text-align:center;color:#667085;padding:18px}
+.message{margin-top:10px;padding:10px;border-radius:10px;text-align:center}
+.success{background:#ecfdf3;color:#166534}
+.error{background:#fef2f2;color:#b91c1c}
+.info{background:#eef2ff;color:#3730a3}
+.pace-status{display:flex;align-items:center;gap:10px;padding:12px;border-radius:12px;font-weight:bold;margin-bottom:12px}
+.pace-dot{width:13px;height:13px;border-radius:50%;flex:0 0 13px}
+.pace-ontrack{background:#ecfdf3;color:#166534}
+.pace-ontrack .pace-dot{background:#16a34a}
+.pace-improve{background:#fffbeb;color:#92400e}
+.pace-improve .pace-dot{background:#eab308}
+.pace-late{background:#fef2f2;color:#b91c1c}
+.pace-late .pace-dot{background:#dc2626}
+.pace-detail{font-size:13px;font-weight:normal;margin-top:3px}
+.pace-actions{display:flex;gap:10px;align-items:end}
+.pace-actions button{flex:1}
+.bedtime-wrap{min-width:150px}
+@media(max-width:600px){
+.grid{grid-template-columns:1fr}
+.stats{grid-template-columns:1fr 1fr}
+.task-row{align-items:flex-start}
+}
+</style>
+</head>
+
+<body>
+<header>
+<h1>⏱ TimeTamer</h1>
+<p>Student Schedule &amp; Focus Planner</p>
+</header>
+
+<main>
+<section class="card">
+<h2>📊 My Progress</h2>
+<div class="stats">
+<div class="stat"><b id="total">0</b>Total Tasks</div>
+<div class="stat"><b id="done">0</b>Completed</div>
+<div class="stat"><b id="focus">0</b>Focus Sessions</div>
+</div>
+</section>
+
+<section class="card">
+<h2>➕ Add Task</h2>
+<div class="grid">
+<input id="taskName" type="text" placeholder="Task or subject">
+<input id="date" type="date">
+<input id="start" type="time">
+<input id="end" type="time">
+<select id="priority">
+<option value="Normal">Normal</option>
+<option value="High">High</option>
+<option value="Low">Low</option>
+</select>
+<input id="notes" type="text" placeholder="Notes (optional)">
+</div>
+<br>
+<label><input id="alarm" type="checkbox" style="width:auto"> Set alarm for this task</label>
+<br><br>
+<button type="button" id="addButton" class="primary full">Add to Schedule</button>
+<div id="message"></div>
+</section>
+
+<section class="card">
+<h2>⏱️ Pace Coach</h2>
+<div id="paceStatus" class="pace-status pace-ontrack">
+<span class="pace-dot"></span>
+<div>
+<div id="paceTitle">🟢 On Track</div>
+<div id="paceDetail" class="pace-detail">Your schedule has enough time.</div>
+</div>
+</div>
+<div id="timeLeft" class="message info" style="margin:0 0 12px;font-weight:bold">
+⏳ Time Left Before Bedtime: --
+</div>
+<div class="grid">
+<div class="bedtime-wrap">
+<label for="bedtime"><strong>Bedtime</strong></label>
+<input id="bedtime" type="time" value="22:00">
+</div>
+<div class="pace-actions">
+<button type="button" id="rebalanceButton" class="secondary full">🔄 Auto-Rebalance</button>
+</div>
+</div>
+<p style="font-size:13px;color:#667085;margin-bottom:0">
+Works offline using your saved schedule.
+</p>
+</section>
+
+<section class="card">
+<h2>📅 My Schedule</h2>
+<div id="tasks"></div>
+<div id="empty" class="empty">No tasks yet. Add your first task above.</div>
+</section>
+
+<section class="card">
+<h2>🍅 Pomodoro</h2>
+<div style="text-align:center">
+<div id="mode">Focus</div>
+<div id="clock" style="font-size:48px;font-weight:bold;margin:10px">25:00</div>
+<button type="button" id="startTimer" class="primary">Start</button>
+<button type="button" id="pauseTimer" class="secondary">Pause</button>
+<button type="button" id="resetTimer" class="secondary">Reset</button>
+<p style="font-size:13px;color:#667085">25 minutes focus • 5 minutes break</p>
+</div>
+</section>
+</main>
+
+<script>
+const KEY = "timetamer_fixed_v4";
+const BEDTIME_KEY = "timetamer_bedtime";
+
+let data = {tasks:[], sessions:0};
+let remaining = 1500;
+let running = false;
+let breakMode = false;
+let timer = null;
+
+try {
+    const stored = localStorage.getItem(KEY);
+    if (stored) data = JSON.parse(stored);
+} catch(e) {
+    data = {tasks:[], sessions:0};
+}
+
+if (!Array.isArray(data.tasks)) data.tasks = [];
+if (typeof data.sessions !== "number") data.sessions = 0;
+
+function save() {
+    localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+function today() {
+    const d = new Date();
+    return d.getFullYear() + "-" +
+        String(d.getMonth()+1).padStart(2,"0") + "-" +
+        String(d.getDate()).padStart(2,"0");
+}
+
+function mins(time) {
+    if (!time) return null;
+    const p = time.split(":");
+    return Number(p[0])*60 + Number(p[1]);
+}
+
+function message(text,type) {
+    const box = document.getElementById("message");
+    box.className = "message " + type;
+    box.textContent = text;
+    setTimeout(() => {
+        box.className = "";
+        box.textContent = "";
+    },3000);
+}
+
+function scheduleNativeAlarm(task) {
+    if (!task.alarm || !task.start || !task.date) return;
+
+    if (!window.Android || !window.Android.scheduleNotification) {
+        message("Task saved. Background alarms need the native Android app.","info");
+        return;
+    }
+
+    const scheduledTime = new Date(
+        task.date + "T" + task.start + ":00"
+    ).getTime();
+
+    if (!isNaN(scheduledTime) && scheduledTime > Date.now()) {
+        window.Android.scheduleNotification(
+            task.name, String(scheduledTime)
+        );
+    }
+}
+
+function getBedtime() {
+    return localStorage.getItem(BEDTIME_KEY) || "22:00";
+}
+
+function saveBedtime() {
+    localStorage.setItem(
+        BEDTIME_KEY,
+        document.getElementById("bedtime").value || "22:00"
+    );
+    updatePaceCoach();
+}
+
+function formatTimeLeft(n) {
+    n = Math.max(0,Math.floor(n));
+    const h = Math.floor(n/60);
+    const m = n%60;
+    if (h && m) return h+"h "+m+"m";
+    if (h) return h+"h";
+    return m+"m";
+}
+
+function updatePaceCoach() {
+    const status = document.getElementById("paceStatus");
+    const title = document.getElementById("paceTitle");
+    const detail = document.getElementById("paceDetail");
+    const timeLeftBox = document.getElementById("timeLeft");
+
+    const bedtime = document.getElementById("bedtime").value || getBedtime();
+    const selectedDate = document.getElementById("date").value || today();
+    const bedtimeMin = mins(bedtime);
+    const now = new Date();
+    const nowMin = now.getHours()*60 + now.getMinutes();
+
+    let untilBed = bedtimeMin-nowMin;
+    if (untilBed < 0) untilBed += 1440;
+
+    timeLeftBox.textContent = untilBed === 0
+        ? "⏰ Time Left Before Bedtime: Now"
+        : "⏳ Time Left Before Bedtime: " + formatTimeLeft(untilBed);
+
+    const tasks = data.tasks.filter(t =>
+        t.date === selectedDate && !t.done && t.start && t.end
+    ).sort((a,b) => a.start.localeCompare(b.start));
+
+    status.className = "pace-status pace-ontrack";
+
+    if (!tasks.length) {
+        title.textContent = "🟢 On Track";
+        detail.textContent = "No scheduled tasks for this date.";
+        return;
+    }
+
+    const total = tasks.reduce((sum,t) =>
+        sum + Math.max(0,mins(t.end)-mins(t.start)),0);
+    const first = mins(tasks[0].start);
+    const last = Math.max(...tasks.map(t => mins(t.end)));
+    const available = Math.max(0,bedtimeMin-first);
+    const slack = bedtimeMin-last;
+
+    if (last > bedtimeMin || total > available) {
+        status.className = "pace-status pace-late";
+        title.textContent = "🔴 Too Late";
+        detail.textContent = "Your planned tasks extend past your bedtime.";
+    } else if (slack <= 30) {
+        status.className = "pace-status pace-improve";
+        title.textContent = "🟡 Needs Improvement";
+        detail.textContent = "Your schedule is tight — only " +
+            formatTimeLeft(slack) + " of buffer remains.";
+    } else {
+        title.textContent = "🟢 On Track";
+        detail.textContent = "You have " + formatTimeLeft(slack) +
+            " of schedule buffer before bedtime.";
+    }
+}
+
+function autoRebalance() {
+    const selectedDate = document.getElementById("date").value || today();
+    const bedtime = mins(document.getElementById("bedtime").value || getBedtime());
+
+    const tasks = data.tasks.filter(t =>
+        t.date === selectedDate && !t.done && t.start && t.end
+    ).sort((a,b) => a.start.localeCompare(b.start));
+
+    if (tasks.length < 2) {
+        message("Add at least two scheduled tasks first.","info");
+        return;
+    }
+
+    const total = tasks.reduce((sum,t) =>
+        sum + Math.max(0,mins(t.end)-mins(t.start)),0);
+    let cursor = mins(tasks[0].start);
+
+    if (cursor + total > bedtime) {
+        message("Not enough time before bedtime for all tasks.","error");
+        return;
+    }
+
+    tasks.forEach(task => {
+        const duration = Math.max(0,mins(task.end)-mins(task.start));
+        task.start = String(Math.floor(cursor/60)).padStart(2,"0") +
+            ":" + String(cursor%60).padStart(2,"0");
+        cursor += duration;
+        task.end = String(Math.floor(cursor/60)).padStart(2,"0") +
+            ":" + String(cursor%60).padStart(2,"0");
+    });
+
+    save();
+    render();
+    message("✓ Schedule rebalanced!","success");
+}
+
+function addTask() {
+    const name = document.getElementById("taskName").value.trim();
+    const date = document.getElementById("date").value || today();
+    const start = document.getElementById("start").value;
+    const end = document.getElementById("end").value;
+    const priority = document.getElementById("priority").value;
+    const notes = document.getElementById("notes").value.trim();
+    const alarm = document.getElementById("alarm").checked;
+
+    if (!name) {
+        message("Please enter a task first.","error");
+        return;
+    }
+
+    if (start && end && mins(end) <= mins(start)) {
+        message("End time must be after start time.","error");
+        return;
+    }
+
+    const task = {
+        id: Date.now()+"_"+Math.random().toString(16).slice(2),
+        name,date,start,end,priority,notes,alarm,done:false
+    };
+
+    data.tasks.push(task);
+    save();
+    render();
+    scheduleNativeAlarm(task);
+
+    document.getElementById("taskName").value = "";
+    document.getElementById("start").value = "";
+    document.getElementById("end").value = "";
+    document.getElementById("notes").value = "";
+    document.getElementById("alarm").checked = false;
+
+    message("✓ Task added!","success");
+}
+
+function deleteTask(id) {
+    data.tasks = data.tasks.filter(t => String(t.id) !== String(id));
+    save();
+    render();
+    message("✓ Task deleted.","success");
+}
+
+function toggleTask(id) {
+    data.tasks.forEach(t => {
+        if (String(t.id) === String(id)) t.done = !t.done;
+    });
+    save();
+    render();
+}
+
+function render() {
+    const box = document.getElementById("tasks");
+    box.innerHTML = "";
+
+    data.tasks.sort((a,b) =>
+        (a.date+a.start).localeCompare(b.date+b.start)
+    );
+
+    data.tasks.forEach(task => {
+        const item = document.createElement("div");
+        item.className = "task" + (task.done ? " done" : "");
+
+        const row = document.createElement("div");
+        row.className = "task-row";
+
+        const check = document.createElement("input");
+        check.type = "checkbox";
+        check.className = "task-check";
+        check.checked = task.done;
+        check.addEventListener("change",() => toggleTask(task.id));
+
+        const info = document.createElement("div");
+        info.className = "task-info";
+
+        const name = document.createElement("div");
+        name.className = "task-name";
+        name.textContent = task.name;
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = task.date +
+            (task.start ? " • "+task.start : "") +
+            (task.end ? "–"+task.end : "") +
+            " • "+task.priority +
+            (task.alarm ? " • 🔔 Alarm" : "") +
+            (task.notes ? " • "+task.notes : "");
+
+        info.append(name,meta);
+
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "delete";
+        del.textContent = "Delete";
+        del.addEventListener("click",() => deleteTask(task.id));
+
+        row.append(check,info,del);
+        item.appendChild(row);
+        box.appendChild(item);
+    });
+
+    document.getElementById("empty").style.display =
+        data.tasks.length ? "none" : "block";
+
+    document.getElementById("total").textContent = data.tasks.length;
+    document.getElementById("done").textContent =
+        data.tasks.filter(t => t.done).length;
+    document.getElementById("focus").textContent = data.sessions;
+
+    updatePaceCoach();
+}
+
+function updateClock() {
+    document.getElementById("clock").textContent =
+        String(Math.floor(remaining/60)).padStart(2,"0") +
+        ":" + String(remaining%60).padStart(2,"0");
+    document.getElementById("mode").textContent =
+        breakMode ? "Break" : "Focus";
+}
+
+function startPomodoro() {
+    if (running) return;
+    running = true;
+
+    timer = setInterval(() => {
+        if (remaining > 0) {
+            remaining--;
+            updateClock();
+            return;
+        }
+
+        clearInterval(timer);
+        timer = null;
+        running = false;
+
+        if (!breakMode) {
+            data.sessions++;
+            save();
+            render();
+            breakMode = true;
+            remaining = 300;
+            alert("Focus complete! Take a 5-minute break.");
+        } else {
+            breakMode = false;
+            remaining = 1500;
+            alert("Break complete! Ready to focus again?");
+        }
+
+        updateClock();
+    },1000);
+}
+
+function pausePomodoro() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    running = false;
+}
+
+function resetPomodoro() {
+    if (timer) clearInterval(timer);
+    timer = null;
+    running = false;
+    breakMode = false;
+    remaining = 1500;
+    updateClock();
+}
+
+document.getElementById("addButton").addEventListener("click",addTask);
+document.getElementById("startTimer").addEventListener("click",startPomodoro);
+document.getElementById("pauseTimer").addEventListener("click",pausePomodoro);
+document.getElementById("resetTimer").addEventListener("click",resetPomodoro);
+document.getElementById("rebalanceButton").addEventListener("click",autoRebalance);
+document.getElementById("bedtime").value = getBedtime();
+document.getElementById("bedtime").addEventListener("change",saveBedtime);
+document.getElementById("date").addEventListener("change",updatePaceCoach);
+
+document.getElementById("date").value = today();
+updateClock();
+render();
+setInterval(updatePaceCoach,60000);
+</script>
+</body>
+</html>
